@@ -1,21 +1,22 @@
 (ns clj-skkserv.core
-  (:refer-clojure :exclude [send])
-  (:import [java.io
-            BufferedReader
-            InputStreamReader
-            OutputStreamWriter
-            Reader
-            Writer]
-           [java.net ServerSocket]
+  (:refer-clojure :exclude [flush send])
+  (:require [clj-skkserv.response :as res]
+            [clj-skkserv.server :as server])
+  (:import [java.io Reader Writer]
            [java.nio CharBuffer]))
 
-(defn- send [^Writer out ^String s]
-  (.append out s)
-  (.flush out))
+(defn emit [res s] (res/emit res s))
+(defn flush [res] (res/flush res))
 
-(defmacro thread [& body]
-  `(doto (Thread. (fn [] ~@body))
-     (.start)))
+(defn respond
+  ([res] (respond res nil))
+  ([res candidates]
+   (res/respond res candidates)))
+
+(defn send [res s]
+  (-> res
+      (emit s)
+      (flush)))
 
 (defn- read-until-space [^Reader in]
   (loop [buf (CharBuffer/allocate 128)]
@@ -28,48 +29,36 @@
   (loop [type nil]
     (when type
       (let [content (when (or (= type :conversion) (= type :completion))
-                      (read-until-space in))]
-        (prn :content content)
-        (handler type content out)))
+                      (read-until-space in))
+            res (res/make-response type out)]
+        (try
+          (prn :content content)
+          (handler type content res)
+          (catch Throwable _
+            (when-not (res/responded? res)
+              (send res "0"))))))
     (let [c (.read in)]
       (when (>= c 0)
         (case c
           48 nil
           49 (recur :conversion)
           50 (recur :version)
-          51 (recur :name)
+          51 (recur :host)
           52 (recur :completion)
           (recur nil))))))
 
 (defn wrap-standard [handler opts]
-  (fn [type content out]
+  (fn [type content res]
     (case type
-      :version (send out "clj-skkserv.0.1 ")
-      :name (send out "127.0.0.1:8080 ")
-      (handler type content out))))
+      :version (emit res "clj-skkserv.0.1 ")
+      :host (emit res "127.0.0.1:1178 ")
+      (handler type content res))))
 
 (defn start-server
   ([handler] (start-server handler {}))
   ([handler {:keys [port] :or {port 1178} :as opts}]
-   (println "starting server ...")
-   (let [socket (ServerSocket. port)]
-     (loop []
-       (let [conn (.accept socket)
-             in (-> (.getInputStream conn)
-                    (InputStreamReader. "EUC-JP")
-                    (BufferedReader.))
-             out (-> (.getOutputStream conn) (OutputStreamWriter. "EUC-JP"))
-             handler' (-> handler (wrap-standard opts))]
-         (println "accepted new connection")
-         (when-not (.isClosed socket)
-           (thread
-             (try
-               (handle-request handler' in out opts)
-               (finally
-                 (.close conn)
-                 (println "disconnected connection"))))
-           (recur))))
-     socket)))
+   (let [handler' (-> handler (wrap-standard opts))]
+     (server/start-server handler' opts))))
 
 (defn hiragana->katakana [s]
   (let [re #"[\u3040-\u309F]"]
@@ -79,14 +68,10 @@
           (clojure.string/replace #"[a-z]$" "")))))
 
 (defn -main []
-  (letfn [(conv [s]
-            (case s
-              "/time" (str (java.util.Date.))))
-          (handler [type content out]
+  (letfn [(handler [type content res]
             (case type
-              :conversion (send out
-                                (if-let [katakana (hiragana->katakana content)]
-                                  (format "1/%s/\n" katakana)
-                                  "1\n"))
-              :completion (send out "4\n")))]
+              :conversion (if-let [katakana (hiragana->katakana content)]
+                            (respond res [katakana])
+                            (respond res))
+              :completion (respond res)))]
     (start-server handler)))
