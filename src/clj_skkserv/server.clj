@@ -24,19 +24,20 @@
 
 (defn- handle [handler ^Reader in ^Writer out opts]
   (loop [type nil]
-    (let [res (res/make-response type out)]
-      (case type
-        (:conversion :completion)
-        (let [content (read-until-space in)]
+    (when type
+      (let [res (res/make-response type out)]
+        (case type
+          (:conversion :completion)
           (try
-            (prn :content content)
-            (handler type content res)
+            (let [content (read-until-space in)]
+              (prn :content content)
+              (res/respond res (handler type content)))
             (catch Throwable _
               (when-not (res/responded? res)
-                (send res "0")))))
-        :version (res/emit res "clj-skkserv.0.1 ")
-        :host (res/emit res "127.0.0.1:1178 ")
-        nil))
+                (-> (res/emit res "0") (res/flush res)))))
+          :version (res/emit res "clj-skkserv.0.1 ")
+          :host (res/emit res "127.0.0.1:1178 ")
+          nil)))
     (let [c (.read in)]
       (when (>= c 0)
         (case c
