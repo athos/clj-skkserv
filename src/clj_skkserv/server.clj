@@ -7,7 +7,7 @@
             OutputStreamWriter
             Reader
             Writer]
-           [java.net ServerSocket]
+           [java.net InetAddress ServerSocket]
            [java.nio CharBuffer]))
 
 (defrecord SkkServer [socket]
@@ -52,9 +52,10 @@
   `(doto (Thread. (fn [] ~@body))
      (.start)))
 
-(defn start-server [handler {:keys [port] :as opts}]
+(defn start-server [handler {:keys [address port] :as opts}]
   (println "starting server ...")
-  (let [socket (ServerSocket. port)]
+  (let [address (InetAddress/getByName address)
+        socket (ServerSocket. port 0 address)]
     (loop []
       (let [conn (.accept socket)
             in (-> (.getInputStream conn)
