@@ -9,7 +9,7 @@
 (defn -main [& args]
   (let [{:keys [handler port] :as opts} (parse-opts args)]
     (if handler
-      (if-let [handler-var (resolve (symbol handler))]
+      (if-let [handler-var (requiring-resolve (symbol handler))]
         (let [opts' (-> (dissoc opts :handler)
                         (cond-> port (update :port #(Long/parseLong %))))]
           (skkserv/start-server @handler-var opts'))
