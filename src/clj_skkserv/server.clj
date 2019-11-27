@@ -70,26 +70,29 @@
   `(doto (Thread. (fn [] ~@body))
      (.start)))
 
-(defn start-server [handler {:keys [address port] :as opts}]
+(defn start-server [handler {:keys [address port join?] :as opts}]
   (let [address (InetAddress/getByName address)
         socket (ServerSocket. port 0 address)
         handle (handle-fn handler opts)]
     (log/infof "server started listening at %s:%d" address port)
-    (loop []
-      (let [conn (.accept socket)
-            in (-> (.getInputStream conn)
-                   (InputStreamReader. "EUC-JP")
-                   (BufferedReader.))
-            out (-> (.getOutputStream conn) (OutputStreamWriter. "EUC-JP"))]
-        (log/info "accepted new client")
-        (when-not (.isClosed socket)
-          (thread
-            (try
-              (handle in out)
-              (catch Throwable t
-                (log/error "unexpected error has occurred"))
-              (finally
-                (.close conn)
-                (log/info "closed connection to client"))))
-          (recur))))
-    (->SkkServer socket)))
+    (let [t (thread
+              (let [conn (.accept socket)
+                    in (-> (.getInputStream conn)
+                           (InputStreamReader. "EUC-JP")
+                           (BufferedReader.))
+                    out (-> (.getOutputStream conn) (OutputStreamWriter. "EUC-JP"))]
+                (log/info "accepted new client")
+                (when-not (.isClosed socket)
+                  (thread
+                    (try
+                      (handle in out)
+                      (catch Throwable t
+                        (log/error "unexpected error has occurred"))
+                      (finally
+                        (.close conn)
+                        (log/info "closed connection to client"))))
+                  (recur))))
+          server (cond-> (->SkkServer socket)
+                   (not join?) (assoc :thread t))]
+      (when join? (.join t))
+      server)))
