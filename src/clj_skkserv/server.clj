@@ -1,6 +1,7 @@
 (ns clj-skkserv.server
   (:require [clj-skkserv.response :as res]
-            [clj-skkserv.version :as ver])
+            [clj-skkserv.version :as ver]
+            [clojure.tools.logging :as log])
   (:import [java.io
             BufferedReader
             Closeable
@@ -48,13 +49,15 @@
               (reset! alive? false)
               (let [type (request-type c)
                     res (res/make-response type out)]
+                (log/debugf "received %s request" (name type))
                 (case type
                   (:conversion :completion)
                   (try
                     (let [content (read-until-space in)]
-                      (prn :content content)
+                      (log/debugf "requested content: %s" content)
                       (res/respond res (handler type content)))
-                    (catch Throwable _
+                    (catch Throwable t
+                      (log/error t "error occurred during request handling")
                       (when-not (res/responded? res)
                         (emit res "0"))))
 
@@ -68,23 +71,25 @@
      (.start)))
 
 (defn start-server [handler {:keys [address port] :as opts}]
-  (println "starting server ...")
   (let [address (InetAddress/getByName address)
         socket (ServerSocket. port 0 address)
         handle (handle-fn handler opts)]
+    (log/infof "server started listening at %s:%d" address port)
     (loop []
       (let [conn (.accept socket)
             in (-> (.getInputStream conn)
                    (InputStreamReader. "EUC-JP")
                    (BufferedReader.))
             out (-> (.getOutputStream conn) (OutputStreamWriter. "EUC-JP"))]
-        (println "accepted new connection")
+        (log/info "accepted new client")
         (when-not (.isClosed socket)
           (thread
             (try
               (handle in out)
+              (catch Throwable t
+                (log/error "unexpected error has occurred"))
               (finally
                 (.close conn)
-                (println "disconnected connection"))))
+                (log/info "closed connection to client"))))
           (recur))))
     (->SkkServer socket)))
