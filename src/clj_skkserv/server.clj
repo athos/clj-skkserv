@@ -1,5 +1,6 @@
 (ns clj-skkserv.server
-  (:require [clj-skkserv.response :as res])
+  (:require [clj-skkserv.response :as res]
+            [clj-skkserv.version :as ver])
   (:import [java.io
             BufferedReader
             Closeable
@@ -36,10 +37,9 @@
     52 :completion
     :unknown))
 
-(defn- handle-fn
-  [handler {:keys [address port] :or {address "localhost" port 1178}}]
-  (let [version "clj-skkserv.0.1 "
-        host (str address \: port \space)]
+(defn- handle-fn [handler {:keys [address port]}]
+  (let [version (str "clj-skkserv" ver/VERSION \space)
+        host (str address ": ")]
     (fn [^Reader in ^Writer out]
       (let [alive? (atom true)]
         (while @alive?
