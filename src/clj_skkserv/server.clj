@@ -27,35 +27,41 @@
       (res/emit content)
       (res/flush)))
 
+(defn- request-type [^long c]
+  (case c
+    48 :disconnect
+    49 :conversion
+    50 :version
+    51 :host
+    52 :completion
+    :unknown))
+
 (defn- handle-fn
   [handler {:keys [address port] :or {address "localhost" port 1178}}]
   (let [version "clj-skkserv.0.1 "
         host (str address \: port \space)]
     (fn [^Reader in ^Writer out]
-      (loop [type nil]
-        (when type
-          (let [res (res/make-response type out)]
-            (case type
-              (:conversion :completion)
-              (try
-                (let [content (read-until-space in)]
-                  (prn :content content)
-                  (res/respond res (handler type content)))
-                (catch Throwable _
-                  (when-not (res/responded? res)
-                    (emit res "0"))))
-              :version (emit res version)
-              :host (emit res host)
-              nil)))
-        (let [c (.read in)]
-          (when (>= c 0)
-            (case c
-              48 nil
-              49 (recur :conversion)
-              50 (recur :version)
-              51 (recur :host)
-              52 (recur :completion)
-              (recur nil))))))))
+      (let [alive? (atom true)]
+        (while @alive?
+          (let [c (.read in)]
+            (if (neg? c)
+              (reset! alive? false)
+              (let [type (request-type c)
+                    res (res/make-response type out)]
+                (case type
+                  (:conversion :completion)
+                  (try
+                    (let [content (read-until-space in)]
+                      (prn :content content)
+                      (res/respond res (handler type content)))
+                    (catch Throwable _
+                      (when-not (res/responded? res)
+                        (emit res "0"))))
+
+                  :version (emit res version)
+                  :host (emit res host)
+                  :disconnect (reset! alive? false)
+                  nil)))))))))
 
 (defmacro thread [& body]
   `(doto (Thread. (fn [] ~@body))
