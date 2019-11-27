@@ -10,7 +10,7 @@
            [java.net InetAddress ServerSocket]
            [java.nio CharBuffer]))
 
-(defrecord SkkServer [socket]
+(defrecord SkkServer [^ServerSocket socket]
   Closeable
   (close [this]
     (.close socket)))
