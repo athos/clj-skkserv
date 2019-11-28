@@ -1,14 +1,38 @@
 # clj-skkserv
 
-A Clojure library designed to ... well, that part is up to you.
+An skkserv server framework in Clojure, heavily inspired by Ring architecture
 
 ## Usage
 
-FIXME
+```clojure
+(ns example.core
+  (:require [clj-skkserv.core :as skkserv]
+            [clj-skkserv.middleware :refer [wrap-conversion-only]]))
+
+(def handler
+  (-> (fn [type content]
+        (case content
+          "rich" "Rich Hickey"
+          "alex" "Alex Miller"
+          nil))
+      wrap-conversion-only))
+
+;; start server
+(def server (skkserv/start-server handler {:port 1178 :join? false}))
+
+;; stop server
+(.close server)
+```
+
+Or just run:
+
+```sh
+$ clj -m clj-skkserv.main --handler example.core/handler --port 1178
+```
 
 ## License
 
-Copyright © 2019 FIXME
+Copyright © 2019 Shogo Ohta
 
 This program and the accompanying materials are made available under the
 terms of the Eclipse Public License 2.0 which is available at
