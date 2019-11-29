@@ -12,8 +12,8 @@ An skkserv server framework in Clojure, heavily inspired by Ring architecture
 (def handler
   (-> (fn [type content]
         (case content
-          "rich" "Rich Hickey"
-          "alex" "Alex Miller"
+          "rich" ["Rich Hickey"]
+          "alex" ["Alex Miller"]
           nil))
       wrap-conversion-only))
 
