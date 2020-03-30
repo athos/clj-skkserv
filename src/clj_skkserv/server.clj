@@ -38,7 +38,7 @@
     52 :completion
     :unknown))
 
-(defn- handle-fn [handler {:keys [address port]}]
+(defn request-handler [handler {:keys [address port]}]
   (let [version (str "clj-skkserv" ver/VERSION \space)
         host (str address ": ")]
     (fn [^Reader in ^Writer out]
@@ -73,7 +73,7 @@
 (defn start-server [handler {:keys [address port join?] :as opts}]
   (let [address (InetAddress/getByName address)
         socket (ServerSocket. port 0 address)
-        handle (handle-fn handler opts)]
+        handle (request-handler handler opts)]
     (log/infof "server started listening at %s:%d" address port)
     (let [t (thread
               (let [conn (.accept socket)
