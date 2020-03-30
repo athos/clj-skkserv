@@ -1,4 +1,5 @@
 # clj-skkserv
+[![GitHub Actions](https://github.com/athos/clj-skkserv/workflows/build/badge.svg)](https://github.com/athos/clj-skkserv/actions?query=workflow%3Abuild)
 
 An skkserv server framework in Clojure, heavily inspired by Ring architecture
 
