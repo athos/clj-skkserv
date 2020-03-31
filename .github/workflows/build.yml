@@ -11,14 +11,23 @@ jobs:
       uses: actions/setup-java@v1
       with:
         java-version: '11'
+    - name: Setup Clojure CLI
+      uses: DeLaGuardo/setup-clojure@2.0
+      with:
+        tools-deps: latest
     - name: Cache .m2
       uses: actions/cache@v1
       with:
         path: ~/.m2
-        key: ${{ runner.os }}-m2-${{ hashFiles('project.clj') }}
+        key: ${{ runner.os }}-m2-${{ hashFiles('deps.edn') }}
         restore-keys: |
           ${{ runner.os }}-m2-
+    - name: Cache .cpcache
+      uses: actions/cache@v1
+      with:
+        path: .cpcache
+        key: ${{ runner.os }}-cpcache-${{ hashFiles('deps.edn') }}
     - name: Install deps
-      run: lein deps
+      run: clojure -Rcheck -Stree
     - name: Run check
-      run: lein check
+      run: clojure -Acheck
