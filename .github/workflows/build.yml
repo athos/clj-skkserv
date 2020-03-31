@@ -22,6 +22,13 @@ jobs:
         key: ${{ runner.os }}-m2-${{ hashFiles('deps.edn') }}
         restore-keys: |
           ${{ runner.os }}-m2-
+    - name: Cache .gitlibs
+      uses: actions/cache@v1
+      with:
+        path: ~/.gitlibs
+        key: ${{ runner.os }}-gitlibs-${{ hashFiles('deps.edn') }}
+        restore-keys: |
+          ${{ runner.os }}-gitlibs-
     - name: Cache .cpcache
       uses: actions/cache@v1
       with:
